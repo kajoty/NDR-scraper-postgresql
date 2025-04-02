@@ -18,13 +18,13 @@ def generate_checksum(station_name, played_date, played_time, artist, title):
 def scrape_playlist(html, station_name, date_str=None):
     """
     Parst den HTML-Inhalt einer Radioplaylist und extrahiert Informationen wie Uhrzeit,
-    Künstler und Titel. Die gewonnenen Daten werden als Dictionary für InfluxDB vorbereitet.
+    Künstler und Titel. Die gewonnenen Daten werden als Dictionary für die PostgreSQL-DB vorbereitet.
     
     :param html: Der HTML-Content der Playlist
     :param station_name: Name der Radiostation
     :param date_str: Optionaler String im Format 'YYYY-MM-DD'. Wird genutzt als abgespieltes Datum.
                      Falls nicht angegeben, wird das aktuelle Datum verwendet.
-    :return: Liste von Dictionaries, die die einzelnen Messpunkte darstellen.
+    :return: Liste von Dictionaries, die die einzelnen Einträge darstellen.
     """
     soup = BeautifulSoup(html, 'html.parser')
     programs = soup.find_all('li', class_='program')
@@ -43,14 +43,15 @@ def scrape_playlist(html, station_name, date_str=None):
         played_time = time_elem.text.strip()
         artist_title_text = h3_elem.text.strip()
         
-        # Erwartetes Format: "Künstler - Titel"
-        artist_title = artist_title_text.split(' - ')
+        # Erwartetes Format: "Künstler - Titel", auch mit weiteren Bindestrichen im Titel
+        artist_title = artist_title_text.split(' - ', 1)
         if len(artist_title) != 2:
             print(f"Unerwartetes Format in '{artist_title_text}', überspringe diesen Eintrag.")
             continue
         
         artist, title = artist_title
-        title = title if title else "Unbekannt"
+        artist = artist.strip()
+        title = title.strip() if title else "Unbekannt"
         
         checksum = generate_checksum(station_name, date_str, played_time, artist, title)
         
@@ -77,7 +78,7 @@ def load_config_and_stations():
     with open('config/config.json', 'r') as config_file:
         config = json.load(config_file)
     
-    required_keys = ['influx_host', 'influx_port', 'influx_user', 'influx_password', 'influx_db', 'num_days']
+    required_keys = ['pg_host', 'pg_port', 'pg_user', 'pg_password', 'pg_db', 'num_days']
     for key in required_keys:
         if key not in config:
             raise KeyError(f"Fehlende erforderliche Konfiguration: {key}")
