@@ -1,0 +1,4 @@
+aiohttp==3.9.3
+tqdm==4.66.2
+beautifulsoup4==4.12.3
+psycopg2-binary==2.9.9

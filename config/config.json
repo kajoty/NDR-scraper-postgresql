@@ -1,0 +1,9 @@
+{
+  "pg_host": "192.168.178.100",
+  "pg_port": 5432,
+  "pg_user": "admin",
+  "pg_password": "admin",
+  "pg_db": "playlist",
+  "num_days": 3,
+  "max_parallel_requests": 10
+}
