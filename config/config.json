@@ -4,6 +4,6 @@
   "pg_user": "admin",
   "pg_password": "admin",
   "pg_db": "playlist",
-  "num_days": 20,
+  "num_days": 90,
   "max_parallel_requests": 10
 }
