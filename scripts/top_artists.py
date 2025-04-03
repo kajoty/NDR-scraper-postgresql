@@ -1,16 +1,14 @@
 # scripts/top_artists.py
 
 import psycopg2
+import json
 from datetime import datetime, timedelta
 
-config = {
-    "pg_host": "192.168.178.100",
-    "pg_port": 5432,
-    "pg_user": "admin",
-    "pg_password": "admin",
-    "pg_db": "playlist"
-}
+# Konfiguration laden
+with open("config/config.json", "r") as f:
+    config = json.load(f)
 
+# PostgreSQL-Verbindung
 conn = psycopg2.connect(
     host=config["pg_host"],
     port=config["pg_port"],
@@ -21,6 +19,7 @@ conn = psycopg2.connect(
 
 cur = conn.cursor()
 
+# 30 Tage zurück
 date_limit = (datetime.utcnow() - timedelta(days=30)).date()
 
 query = """
