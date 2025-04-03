@@ -11,14 +11,18 @@ from tqdm import tqdm
 
 from functions.fetch_data import fetch_playlist
 from functions.scrape_playlist import scrape_playlist
-from functions.postgresql import write_to_postgresql
+from functions.postgresql import initialize_postgresql, write_to_postgresql
 
 
 def load_config_and_stations():
     with open('config/config.json', 'r') as config_file:
         config = json.load(config_file)
 
-    required_keys = ['pg_host', 'pg_port', 'pg_user', 'pg_password', 'pg_db', 'num_days']
+    required_keys = [
+        'pg_host', 'pg_port',
+        'pg_user', 'pg_password',
+        'pg_db', 'num_days'
+    ]
     for key in required_keys:
         if key not in config:
             raise KeyError(f"Fehlende erforderliche Konfiguration: {key}")
@@ -81,7 +85,11 @@ def select_stations(stations):
     choice = input_with_timeout(
         "Geben Sie 'alle' für alle Stationen oder eine durch Komma getrennte Liste von Zahlen bzw. eine Range (z.B. 1-3) an: ",
         timeout=5
-    ).strip().lower()
+    )
+    if choice is None:
+        return stations
+
+    choice = choice.strip().lower()
 
     if choice == "alle":
         return stations
@@ -95,7 +103,7 @@ def select_stations(stations):
     return selected_stations
 
 
-async def fetch_data_for_day(session, semaphore, config, station, date):
+async def fetch_data_for_day(session, semaphore, conn, station, date):
     for hour in range(24):
         hour_str = str(hour).zfill(2)
         formatted_url = f"{station['url']}?date={date}&hour={hour_str}"
@@ -106,12 +114,15 @@ async def fetch_data_for_day(session, semaphore, config, station, date):
         if html:
             data = scrape_playlist(html, station['station_name'], date_str=date)
             if data:
-                write_to_postgresql(config, data)
-                tqdm.write(f"Daten gespeichert für {station['station_name']} am {date} Stunde {hour_str}")
+                try:
+                    write_to_postgresql(conn, data)
+                    tqdm.write(f"Daten gespeichert für {station['station_name']} am {date} Stunde {hour_str}")
+                except Exception as e:
+                    tqdm.write(f"❌ Fehler bei der Verbindung oder beim Schreiben in PostgreSQL: {e}")
             else:
                 tqdm.write(f"Keine Daten: {station['station_name']} {date} {hour_str}h")
         else:
-            tqdm.write(f"Fehler beim Abrufen: {station['station_name']} {date} {hour_str}h")
+            tqdm.write(f"Fehler beim Abrufen von {station['station_name']} {date} {hour_str}h")
 
 
 async def fetch_data():
@@ -127,6 +138,8 @@ async def fetch_data():
     now = datetime.now()
     dates = [(now - timedelta(days=i)).strftime('%Y-%m-%d') for i in range(num_days)]
 
+    conn = initialize_postgresql(config)
+
     total_tasks = len(dates) * len(stations_to_query)
     progress = tqdm(total=total_tasks, desc="Fortschritt")
 
@@ -135,7 +148,7 @@ async def fetch_data():
 
         async def wrapped_task(station, date):
             try:
-                await fetch_data_for_day(session, semaphore, config, station, date)
+                await fetch_data_for_day(session, semaphore, conn, station, date)
             except Exception as e:
                 tqdm.write(f"Fehler bei {station['station_name']} am {date}: {e}")
             finally:
@@ -145,6 +158,7 @@ async def fetch_data():
         await asyncio.gather(*tasks)
 
     progress.close()
+    conn.close()
 
 
 if __name__ == "__main__":
