@@ -25,20 +25,31 @@ def write_to_postgresql(config, data):
     records = []
 
     for entry in data:
-        fields = entry["fields"]
-        played_at = datetime.strptime(
-            f"{fields['played_date']} {fields['played_time']}", "%Y-%m-%d %H:%M:%S"
-        )
+        try:
+            fields = entry["fields"]
+            time_str = f"{fields['played_date']} {fields['played_time']}"
 
-        records.append((
-            fields['checksum'],
-            entry['tags']['station'],
-            fields['artist'],
-            fields['title'],
-            fields['played_date'],
-            fields['played_time'],
-            played_at
-        ))
+            # Versuche mit Sekunden, sonst ohne
+            try:
+                played_at = datetime.strptime(time_str, "%Y-%m-%d %H:%M:%S")
+            except ValueError:
+                played_at = datetime.strptime(time_str, "%Y-%m-%d %H:%M")
+
+            records.append((
+                fields['checksum'],
+                entry['tags']['station'],
+                fields['artist'],
+                fields['title'],
+                fields['played_date'],
+                fields['played_time'],
+                played_at
+            ))
+        except Exception as e:
+            print(f"⚠️ Fehler beim Verarbeiten eines Eintrags: {e}")
+
+    if not records:
+        print("⚠️ Keine gültigen Datensätze zum Einfügen gefunden.")
+        return
 
     with conn.cursor() as cur:
         execute_batch(cur, query, records)
