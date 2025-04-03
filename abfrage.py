@@ -1,5 +1,7 @@
-import asyncio 
-import json 
+# abfrage.py
+
+import asyncio
+import json
 import csv
 import aiohttp
 from datetime import datetime, timedelta
@@ -9,17 +11,14 @@ from tqdm import tqdm
 
 from functions.fetch_data import fetch_playlist
 from functions.scrape_playlist import scrape_playlist
-from functions.postgresql import initialize_postgresql, write_to_postgresql
+from functions.postgresql import write_to_postgresql
+
 
 def load_config_and_stations():
     with open('config/config.json', 'r') as config_file:
         config = json.load(config_file)
 
-    required_keys = [
-        'pg_host', 'pg_port',
-        'pg_user', 'pg_password',
-        'pg_db', 'num_days'
-    ]
+    required_keys = ['pg_host', 'pg_port', 'pg_user', 'pg_password', 'pg_db', 'num_days']
     for key in required_keys:
         if key not in config:
             raise KeyError(f"Fehlende erforderliche Konfiguration: {key}")
@@ -34,9 +33,13 @@ def load_config_and_stations():
             })
     return config, stations
 
+
 def input_with_timeout(prompt, timeout=5):
     user_input = [None]
-    def get_input(): user_input[0] = input(prompt)
+
+    def get_input():
+        user_input[0] = input(prompt)
+
     thread = threading.Thread(target=get_input)
     thread.daemon = True
     thread.start()
@@ -46,6 +49,7 @@ def input_with_timeout(prompt, timeout=5):
         tqdm.write(f"\nKeine Eingabe nach {timeout} Sekunden. Starte mit 'alle'.")
         return "alle"
     return user_input[0]
+
 
 def parse_station_selection(choice, stations):
     selected_stations = []
@@ -67,8 +71,10 @@ def parse_station_selection(choice, stations):
                 tqdm.write(f"Ungültige Eingabe: {part}.")
     return list(sorted(set(selected_stations)))
 
+
 def select_stations(stations):
     tqdm.write("Möchten Sie alle Stationen abfragen oder nur bestimmte?")
+    tqdm.write("Verfügbare Stationen:")
     for i, station in enumerate(stations):
         tqdm.write(f"{i + 1}. {station['station_name']}")
 
@@ -85,9 +91,11 @@ def select_stations(stations):
         tqdm.write("Keine gültigen Stationen ausgewählt.")
         return []
 
-    return [stations[i] for i in selected_indexes]
+    selected_stations = [stations[i] for i in selected_indexes]
+    return selected_stations
 
-async def fetch_data_for_day(session, semaphore, client, station, date, progress):
+
+async def fetch_data_for_day(session, semaphore, config, station, date):
     for hour in range(24):
         hour_str = str(hour).zfill(2)
         formatted_url = f"{station['url']}?date={date}&hour={hour_str}"
@@ -98,14 +106,13 @@ async def fetch_data_for_day(session, semaphore, client, station, date, progress
         if html:
             data = scrape_playlist(html, station['station_name'], date_str=date)
             if data:
-                write_to_postgresql(client, data)
-                tqdm.write(f"Gespeichert: {station['station_name']} {date} {hour_str}h")
+                write_to_postgresql(config, data)
+                tqdm.write(f"Daten gespeichert für {station['station_name']} am {date} Stunde {hour_str}")
             else:
                 tqdm.write(f"Keine Daten: {station['station_name']} {date} {hour_str}h")
         else:
             tqdm.write(f"Fehler beim Abrufen: {station['station_name']} {date} {hour_str}h")
 
-        progress.update(1)
 
 async def fetch_data():
     config, stations = load_config_and_stations()
@@ -114,36 +121,34 @@ async def fetch_data():
 
     stations_to_query = select_stations(stations)
     if not stations_to_query:
-        tqdm.write("Keine Stationen ausgewählt. Beende.")
+        tqdm.write("Keine Stationen ausgewählt. Beende das Programm.")
         return
 
     now = datetime.now()
     dates = [(now - timedelta(days=i)).strftime('%Y-%m-%d') for i in range(num_days)]
 
-    client = initialize_postgresql(config)
-
-    total_tasks = len(dates) * len(stations_to_query) * 24
-    progress = tqdm(total=total_tasks, desc="Fortschritt", unit="Anfrage")
+    total_tasks = len(dates) * len(stations_to_query)
+    progress = tqdm(total=total_tasks, desc="Fortschritt")
 
     async with aiohttp.ClientSession() as session:
         semaphore = Semaphore(max_parallel)
 
         async def wrapped_task(station, date):
             try:
-                await fetch_data_for_day(session, semaphore, client, station, date, progress)
+                await fetch_data_for_day(session, semaphore, config, station, date)
             except Exception as e:
-                tqdm.write(f"Fehler bei {station['station_name']} {date}: {e}")
+                tqdm.write(f"Fehler bei {station['station_name']} am {date}: {e}")
+            finally:
+                progress.update(1)
 
         tasks = [wrapped_task(station, date) for date in dates for station in stations_to_query]
         await asyncio.gather(*tasks)
 
     progress.close()
-    client.close()
+
 
 if __name__ == "__main__":
     try:
         asyncio.run(fetch_data())
-    except KeyboardInterrupt:
-        tqdm.write("\nAbbruch durch Benutzer.")
     finally:
         tqdm.write("Programm beendet.")
