@@ -9,7 +9,7 @@ with open("config/config.json", "r") as f:
     config = json.load(f)
 
 # Zieldatum analysieren
-TARGET_DATE = '2025-02-09'  # Hier beliebiges Datum eintragen
+TARGET_DATE = '2025-02-11'  # Hier beliebiges Datum eintragen
 
 # Verbindung aufbauen
 conn = psycopg2.connect(
