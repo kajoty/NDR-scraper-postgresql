@@ -39,17 +39,22 @@ pip install -r requirements.txt
 
 ```bash
 NDR-scraper-postgresql/
-├── abfrage.py                 # Interaktive Abfrage
-├── abfrage_auto.py           # Automatische Abfrage (für systemd)
-├── stations.csv              # Liste der Radiosender + URLs
+├── abfrage.py                  # Interaktive Auswahl-Abfrage
+├── abfrage_auto.py            # Automatisierte Version (für systemd)
+├── stations.csv               # Liste der NDR-Sender + URLs
+├── requirements.txt           # Python-Abhängigkeiten
 ├── config/
-│   ├── config.json           # Verbindungs- & Scraping-Einstellungen
-│   └── scripts/              # Analyse- & Auswertungs-Tools
+│   ├── config.json            # Zugangsdaten für PostgreSQL
+│
 ├── functions/
-│   ├── fetch_data.py
-│   ├── postgresql.py
-│   └── scrape_playlist.py
-└── requirements.txt
+│   ├── fetch_data.py          # HTTP-Download via aiohttp
+│   ├── postgresql.py          # DB-Verbindung + Insert-Logik
+│   └── scrape_playlist.py     # HTML-Parsen + Datenaufbereitung
+│
+├── scripts/                   # Eigene Analyse- und Auswertungs-Tools
+│   ├── top_artists.py         # Top 3 Interpreten je Sender
+│   ├── evaluate_day.py        # Analyse einzelner Tage
+│   ├── check_anomalies.py     # Erkennung von Ausreißern
 ```
 
 ---
