@@ -1,66 +1,55 @@
 # scripts/top_artists.py
 
 import psycopg2
-import json
 from datetime import datetime, timedelta
-from collections import defaultdict
 
-def load_config():
-    with open('config/config.json', 'r') as f:
-        config = json.load(f)
-    return config
+config = {
+    "pg_host": "192.168.178.100",
+    "pg_port": 5432,
+    "pg_user": "admin",
+    "pg_password": "admin",
+    "pg_db": "playlist"
+}
 
-def connect_db(config):
-    return psycopg2.connect(
-        host=config['pg_host'],
-        port=config['pg_port'],
-        user=config['pg_user'],
-        password=config['pg_password'],
-        dbname=config['pg_db']
-    )
+conn = psycopg2.connect(
+    host=config["pg_host"],
+    port=config["pg_port"],
+    user=config["pg_user"],
+    password=config["pg_password"],
+    dbname=config["pg_db"]
+)
 
-def get_top_artists(conn, days=30, top_n=3):
-    since_date = (datetime.now() - timedelta(days=days)).date()
+cur = conn.cursor()
 
-    query = """
-        SELECT station, artist, COUNT(*) AS play_count
-        FROM playlist_data
-        WHERE played_date >= %s
-        GROUP BY station, artist
-        ORDER BY station, play_count DESC
-    """
+date_limit = (datetime.utcnow() - timedelta(days=30)).date()
 
-    with conn.cursor() as cur:
-        cur.execute(query, (since_date,))
-        results = cur.fetchall()
+query = """
+SELECT station, artist, COUNT(*) AS play_count
+FROM ndr_playlist
+WHERE played_date >= %s
+GROUP BY station, artist
+ORDER BY station, play_count DESC;
+"""
 
-    # Gruppieren nach Station und sortieren nach play_count
-    top_artists_by_station = defaultdict(list)
-    for station, artist, count in results:
-        top_artists_by_station[station].append((artist, count))
+cur.execute(query, (date_limit,))
+rows = cur.fetchall()
 
-    # Nur Top N je Station behalten
-    for station in top_artists_by_station:
-        top_artists_by_station[station] = top_artists_by_station[station][:top_n]
+current_station = None
+rank = 1
 
-    return top_artists_by_station
+print("🎧 Top Interpreten der letzten 30 Tage:\n")
 
-def print_top_artists(data, days):
-    print(f"\n🎧 Top Interpreten der letzten {days} Tage:\n")
-    for station, artists in data.items():
+for row in rows:
+    station, artist, count = row
+    if station != current_station:
+        if current_station is not None:
+            print()
         print(f"📻 {station}:")
-        for i, (artist, count) in enumerate(artists, 1):
-            print(f"  {i}. {artist} ({count} Plays)")
-        print()
+        current_station = station
+        rank = 1
 
-def main():
-    config = load_config()
-    conn = connect_db(config)
-    try:
-        top_artists = get_top_artists(conn, days=30, top_n=3)
-        print_top_artists(top_artists, 30)
-    finally:
-        conn.close()
+    if rank <= 3:
+        print(f"  {rank}. {artist} ({count} Plays)")
+        rank += 1
 
-if __name__ == "__main__":
-    main()
+conn.close()
