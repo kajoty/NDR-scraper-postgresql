@@ -4,6 +4,19 @@ Ein Python-Skript zur automatisierten Abfrage und Speicherung von Musiktiteln au
 
 ---
 
+### 💡 Hintergrund
+
+Dieses Projekt liest öffentlich sichtbare Playlists von verschiedenen NDR-Radiosendern automatisiert aus – ganz klassisch per Webscraping.
+
+Die Daten stammen aus frei zugänglichen Webseiten und sind für alle Internetnutzer sichtbar. Es handelt sich dabei nicht um eine offizielle Open-Data-Schnittstelle, aber die Inhalte lassen sich gut weiterverarbeiten – z. B. zur Auswertung oder Archivierung.
+
+> Ziel ist es, aus öffentlich zugänglichen Infos strukturierte Daten zu machen – für eigene Analysen, für Musikinteressierte oder einfach aus Neugier.
+
+Dabei wird bewusst ressourcenschonend gearbeitet:  
+Kein wildes Crawling, sondern gezielter Abruf einzelner Seiten – einmal täglich.
+
+---
+
 ## 🧰 Funktionen
 
 - ⏱ Automatisierter Tagesabruf der Playlists
@@ -44,17 +57,15 @@ NDR-scraper-postgresql/
 ├── stations.csv               # Liste der NDR-Sender + URLs
 ├── requirements.txt           # Python-Abhängigkeiten
 ├── config/
-│   ├── config.json            # Zugangsdaten für PostgreSQL
-│
+│   └── config.json            # Zugangsdaten für PostgreSQL
 ├── functions/
-│   ├── fetch_data.py          # HTTP-Download via aiohttp
-│   ├── postgresql.py          # DB-Verbindung + Insert-Logik
-│   └── scrape_playlist.py     # HTML-Parsen + Datenaufbereitung
-│
-├── scripts/                   # Eigene Analyse- und Auswertungs-Tools
-│   ├── top_artists.py         # Top 3 Interpreten je Sender
-│   ├── evaluate_day.py        # Analyse einzelner Tage
-│   ├── check_anomalies.py     # Erkennung von Ausreißern
+│   ├── fetch_data.py
+│   ├── postgresql.py
+│   └── scrape_playlist.py
+└── scripts/
+    ├── top_artists.py
+    ├── evaluate_day.py
+    ├── check_anomalies.py
 ```
 
 ---
